@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import auth, insights, integrations
+from app.api import auth, insights, integrations, sync
 from app.database import Base, engine
 
 
@@ -19,6 +19,7 @@ app = FastAPI(title="HealthSync API", version="0.1.0", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(integrations.router)
 app.include_router(insights.router)
+app.include_router(sync.router)
 
 
 @app.get("/healthz", tags=["meta"])

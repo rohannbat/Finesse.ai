@@ -54,3 +54,13 @@ class InsightOut(BaseModel):
 class TodayResponse(BaseModel):
     insight: InsightOut
     snapshot: SnapshotOut
+
+
+class SyncResponse(BaseModel):
+    """Combined payload for polling clients (one round trip per poll)."""
+
+    snapshot: SnapshotOut
+    insight: InsightOut | None
+    changed: bool
+    insight_error: str | None = None
+    source_errors: dict[str, str] = {}

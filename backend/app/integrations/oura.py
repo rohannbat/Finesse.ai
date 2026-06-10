@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 import httpx
 
 from app.config import get_settings
+from app.integrations import IntegrationError
 
 AUTHORIZE_URL = "https://cloud.ouraring.com/oauth/authorize"
 TOKEN_URL = "https://api.ouraring.com/oauth/token"
@@ -17,7 +18,7 @@ API_BASE = "https://api.ouraring.com/v2"
 SCOPES = "daily heartrate personal session"
 
 
-class OuraError(Exception):
+class OuraError(IntegrationError):
     pass
 
 

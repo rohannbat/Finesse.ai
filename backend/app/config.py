@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     token_encryption_key: str = ""
 
+    # WHOOP OAuth2 app credentials (https://developer.whoop.com)
+    whoop_client_id: str = ""
+    whoop_client_secret: str = ""
+    whoop_redirect_uri: str = "http://localhost:8000/api/integrations/whoop/callback"
+
     # Oura OAuth2 app credentials (https://cloud.ouraring.com/oauth/applications)
     oura_client_id: str = ""
     oura_client_secret: str = ""
