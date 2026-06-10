@@ -1,7 +1,9 @@
 import uuid
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from app.constants import BMR_KCAL
 
 
 class RegisterRequest(BaseModel):
@@ -64,3 +66,24 @@ class SyncResponse(BaseModel):
     changed: bool
     insight_error: str | None = None
     source_errors: dict[str, str] = {}
+    # Echoed so the client renders energy balance with the same constant
+    # the backend flags against (see app/constants.py).
+    bmr_kcal: int = BMR_KCAL
+
+
+class NutritionLogRequest(BaseModel):
+    day: date | None = None  # defaults to today (UTC)
+    calories: int = Field(ge=0, le=10000)
+    protein_g: float = Field(ge=0, le=1000)
+    carbs_g: float | None = Field(default=None, ge=0, le=1000)
+    fat_g: float | None = Field(default=None, ge=0, le=1000)
+
+
+class NutritionTodayResponse(BaseModel):
+    day: date
+    calories_consumed: int | None
+    protein_g: float | None
+    carbs_g: float | None
+    fat_g: float | None
+    active_calories: int | None
+    bmr_kcal: int = BMR_KCAL

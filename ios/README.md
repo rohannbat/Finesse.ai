@@ -33,6 +33,7 @@ For a **physical device**, also point the WHOOP redirect URI at your LAN IP in `
 1. **Create account** on the login screen (any email + 8-char password).
 2. Menu (⋯) → **Connect WHOOP** — approve in Safari; the backend callback page shows `{"status": "connected"}`. Return to the app.
 3. The dashboard polls every 30s (toggle in the ⋯ menu, or pull-to-refresh / "Sync now" for manual).
+4. **Log food** (button under the metric grid) — enter the day's calorie/protein totals (carbs/fat optional), Save. Replace semantics: each save sets the day's totals; re-save running totals to update. The Calories in / Energy balance / Protein tiles populate immediately and the insight regenerates to connect food to recovery.
 
 ## How the 30-second sync works
 

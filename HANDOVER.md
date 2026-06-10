@@ -148,7 +148,7 @@ iOS: see `ios/README.md`. Curl walkthrough: see root `README.md`.
 
 | Item | Notes |
 |---|---|
-| MyFitnessPal | Not started. Nutrition columns (`calories_consumed`, `protein_g`, ...) are always null, so the `protein_deficit` flag can never fire yet. MFP's public API access is restricted — may need partner approval or an alternative (e.g. manual logging endpoint). |
+| Third-party nutrition API | MFP's API is dead; Cronometer/Nutritionix are a later decision. Interim solution shipped: **manual day-totals logging** via `POST /api/nutrition` + iOS quick-log sheet (replace semantics, same snapshot row and change-detection path as wearable syncs). Energy-balance and protein-floor flags use fixed constants (`app/constants.py`: 1700 kcal BMR, 75 kg bodyweight) — make per-user columns later. |
 | Scheduled job | No cron/APScheduler. Production should run `sync_all_connected` + `generate_insight` per user at 6am local. |
 | React web dashboard | Not started (iOS app covers testing). |
 | Apple HealthKit | Not started; the iOS app is the natural host (HealthKit is iOS-SDK-only, no server API). |

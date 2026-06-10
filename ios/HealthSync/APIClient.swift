@@ -58,10 +58,21 @@ final class APIClient {
         return url
     }
 
-    /// One round trip: syncs Oura, regenerates the insight server-side only
-    /// if the data changed. Called by the dashboard's 30s polling loop.
+    /// One round trip: syncs all connected platforms, regenerates the insight
+    /// server-side only if the data changed. Called by the dashboard's 30s
+    /// polling loop.
     func syncNow() async throws -> SyncResponse {
         try await request("/api/sync", method: "POST")
+    }
+
+    /// Replace semantics: sets the day's nutrition totals outright (the
+    /// backend merges into today's snapshot and regenerates the insight if
+    /// values changed).
+    func logNutrition(calories: Int, proteinG: Double, carbsG: Double?, fatG: Double?) async throws -> SyncResponse {
+        var body: [String: Any] = ["calories": calories, "protein_g": proteinG]
+        if let carbsG { body["carbs_g"] = carbsG }
+        if let fatG { body["fat_g"] = fatG }
+        return try await request("/api/nutrition", method: "POST", body: body)
     }
 
     func logout() {

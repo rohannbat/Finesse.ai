@@ -51,4 +51,7 @@ struct SyncResponse: Decodable {
     let changed: Bool
     let insightError: String?
     let sourceErrors: [String: String]
+    /// BMR constant echoed by the backend so energy-balance math can't
+    /// drift between client and server.
+    let bmrKcal: Int
 }

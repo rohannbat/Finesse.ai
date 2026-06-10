@@ -7,6 +7,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.constants import (
+    BMR_KCAL,
+    BODYWEIGHT_KG,
+    CALORIE_BALANCE_THRESHOLD_KCAL,
+    PROTEIN_FLOOR_G_PER_KG,
+)
 from app.models import DailyInsight, DailySnapshot, User
 
 PROMPT_TEMPLATE = """You are a personal health performance coach. Given today's health data and the user's 30-day baseline, generate 2-3 plain-language observations and one actionable recommendation. Be specific, not generic. Do not give medical advice.
@@ -14,7 +20,7 @@ PROMPT_TEMPLATE = """You are a personal health performance coach. Given today's 
 Today's data:
 - Sleep: {sleep_duration_min} min, {sleep_efficiency_pct}% efficient, HRV {hrv_ms}ms
 - Recovery score: {recovery_score}/100
-- Calories consumed: {calories_consumed} kcal, Protein: {protein_g}g
+- Calories consumed: {calories_consumed}, Protein: {protein_g}
 - Active calories burned: {active_calories} kcal, Steps: {steps}
 - Workout: {workout_minutes} min
 
@@ -22,12 +28,12 @@ Today's data:
 - Avg sleep: {avg_sleep} min, Avg HRV: {avg_hrv}ms
 - Avg recovery: {avg_recovery}, Avg protein: {avg_protein}g
 
-Respond in 3-4 sentences. Focus on what's notable today compared to their normal."""
+Respond in 3-4 sentences. Focus on what's notable today compared to their normal. If nutrition data exists, comment on energy balance relative to activity; if it says "not logged", do not speculate about food intake."""
 
 
-def _fmt(value, digits: int = 0) -> str:
+def _fmt(value, digits: int = 0, missing: str = "n/a") -> str:
     if value is None:
-        return "n/a"
+        return missing
     if isinstance(value, float):
         return f"{value:.{digits}f}" if digits else f"{value:.1f}"
     return str(value)
@@ -59,12 +65,31 @@ def compute_baseline(db: Session, user_id, day: date) -> dict:
 
 
 def compute_flags(snapshot: DailySnapshot, baseline: dict) -> dict:
-    """Deterministic anomaly flags vs the user's own baseline.
+    """Deterministic anomaly flags.
 
-    Only flagged once there's 14+ days of history, per the personalisation
-    design decision (compare to self, not population).
+    Two kinds:
+    - Absolute flags (energy balance, protein floor) — fire from day one,
+      no baseline needed.
+    - Baseline-relative flags — compare against the user's own rolling
+      30-day averages (never population norms) and only activate once
+      there's 14+ days of history.
     """
     flags: dict = {}
+
+    # --- Absolute flags (no maturity gate) ---
+    if snapshot.calories_consumed is not None:
+        expenditure = (snapshot.active_calories or 0) + BMR_KCAL
+        balance = snapshot.calories_consumed - expenditure
+        if balance > CALORIE_BALANCE_THRESHOLD_KCAL:
+            flags["calorie_surplus"] = True
+        elif balance < -CALORIE_BALANCE_THRESHOLD_KCAL:
+            flags["calorie_deficit"] = True
+
+    if snapshot.protein_g is not None:
+        if snapshot.protein_g < PROTEIN_FLOOR_G_PER_KG * BODYWEIGHT_KG:
+            flags["protein_deficit"] = True
+
+    # --- Baseline-relative flags ---
     if baseline["days_of_data"] < 14:
         flags["baseline_immature"] = True
         return flags
@@ -90,8 +115,12 @@ def build_prompt(snapshot: DailySnapshot, baseline: dict) -> str:
         sleep_efficiency_pct=_fmt(snapshot.sleep_efficiency_pct),
         hrv_ms=_fmt(snapshot.hrv_ms),
         recovery_score=_fmt(snapshot.recovery_score),
-        calories_consumed=_fmt(snapshot.calories_consumed),
-        protein_g=_fmt(snapshot.protein_g),
+        # "not logged" (never "None"/"0") so Claude doesn't read missing
+        # nutrition as a zero-calorie day; units only when a value exists
+        calories_consumed="not logged" if snapshot.calories_consumed is None
+        else f"{snapshot.calories_consumed} kcal",
+        protein_g="not logged" if snapshot.protein_g is None
+        else f"{_fmt(snapshot.protein_g)}g",
         active_calories=_fmt(snapshot.active_calories),
         steps=_fmt(snapshot.steps),
         workout_minutes=_fmt(snapshot.workout_minutes),

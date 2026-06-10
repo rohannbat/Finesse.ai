@@ -9,6 +9,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isSyncing = false
     @Published var autoSync = true
+    @Published var bmrKcal = 1700  // overwritten by the backend's value on first response
 
     static let pollInterval: Duration = .seconds(30)
 
@@ -17,24 +18,36 @@ final class DashboardViewModel: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
         do {
-            let response = try await APIClient.shared.syncNow()
-            snapshot = response.snapshot
-            if let fresh = response.insight {
-                insight = fresh
-            }
-            lastSynced = Date()
-            if response.changed {
-                lastChanged = Date()
-            }
-            var problems: [String] = []
-            if let insightError = response.insightError {
-                problems.append("insight: \(insightError)")
-            }
-            problems.append(contentsOf: response.sourceErrors.map { "\($0.key): \($0.value)" })
-            errorMessage = problems.isEmpty ? nil : problems.joined(separator: "\n")
+            apply(try await APIClient.shared.syncNow())
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Shared by the sync poll and the nutrition-log sheet — both return
+    /// the same response shape.
+    func apply(_ response: SyncResponse) {
+        snapshot = response.snapshot
+        if let fresh = response.insight {
+            insight = fresh
+        }
+        lastSynced = Date()
+        if response.changed {
+            lastChanged = Date()
+        }
+        bmrKcal = response.bmrKcal
+        var problems: [String] = []
+        if let insightError = response.insightError {
+            problems.append("insight: \(insightError)")
+        }
+        problems.append(contentsOf: response.sourceErrors.map { "\($0.key): \($0.value)" })
+        errorMessage = problems.isEmpty ? nil : problems.joined(separator: "\n")
+    }
+
+    /// kcal relative to (active calories + BMR); nil until nutrition is logged.
+    var energyBalance: Int? {
+        guard let consumed = snapshot?.caloriesConsumed else { return nil }
+        return consumed - ((snapshot?.activeCalories ?? 0) + bmrKcal)
     }
 }
 
@@ -43,6 +56,7 @@ struct DashboardView: View {
     @StateObject private var model = DashboardViewModel()
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showLogSheet = false
 
     var body: some View {
         NavigationStack {
@@ -50,9 +64,15 @@ struct DashboardView: View {
                 VStack(spacing: 16) {
                     insightCard
                     metricsGrid
+                    logFoodButton
                     syncStatus
                 }
                 .padding()
+            }
+            .sheet(isPresented: $showLogSheet) {
+                NutritionLogSheet(snapshot: model.snapshot) { response in
+                    model.apply(response)
+                }
             }
             .navigationTitle("Today")
             .toolbar {
@@ -136,7 +156,22 @@ struct DashboardView: View {
             metric("Steps", model.snapshot?.steps.map { $0.formatted() }, "figure.walk")
             metric("Active kcal", model.snapshot?.activeCalories.map { "\($0)" }, "flame.fill")
             metric("Workout", model.snapshot?.workoutMinutes.map { formatMinutes($0) }, "dumbbell.fill")
+            metric("Calories in", model.snapshot?.caloriesConsumed.map { "\($0)" }, "fork.knife")
+            metric("Energy balance", model.energyBalance.map { formatBalance($0) }, "scalemass.fill")
+            metric("Protein", model.snapshot?.proteinG.map { "\(Int($0)) g" }, "p.circle.fill")
         }
+    }
+
+    private var logFoodButton: some View {
+        Button {
+            showLogSheet = true
+        } label: {
+            Label("Log food", systemImage: "fork.knife.circle.fill")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+        }
+        .buttonStyle(.borderedProminent)
     }
 
     private func metric(_ title: String, _ value: String?, _ icon: String) -> some View {
@@ -187,6 +222,10 @@ struct DashboardView: View {
 
     private func formatMinutes(_ minutes: Int) -> String {
         minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
+    }
+
+    private func formatBalance(_ kcal: Int) -> String {
+        kcal >= 0 ? "+\(kcal) kcal" : "−\(abs(kcal)) kcal"
     }
 }
 
