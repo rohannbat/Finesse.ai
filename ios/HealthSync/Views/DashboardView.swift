@@ -10,6 +10,7 @@ final class DashboardViewModel: ObservableObject {
     @Published var isSyncing = false
     @Published var autoSync = true
     @Published var bmrKcal = 1700  // overwritten by the backend's value on first response
+    @Published var entries: [FoodEntry] = []
 
     static let pollInterval: Duration = .seconds(30)
 
@@ -24,24 +25,55 @@ final class DashboardViewModel: ObservableObject {
         }
     }
 
-    /// Shared by the sync poll and the nutrition-log sheet — both return
-    /// the same response shape.
+    /// Shared by the sync poll and food-entry mutations — both return
+    /// the same snapshot/insight payload.
     func apply(_ response: SyncResponse) {
         snapshot = response.snapshot
-        if let fresh = response.insight {
+        applyCommon(insight: response.insight, changed: response.changed,
+                    bmr: response.bmrKcal, insightError: response.insightError,
+                    sourceErrors: response.sourceErrors)
+    }
+
+    func apply(_ response: FoodLogResponse) {
+        if let fresh = response.snapshot {
+            snapshot = fresh
+        }
+        entries = response.entries
+        applyCommon(insight: response.insight, changed: response.changed,
+                    bmr: response.bmrKcal, insightError: response.insightError,
+                    sourceErrors: [:])
+    }
+
+    private func applyCommon(insight fresh: Insight?, changed: Bool, bmr: Int,
+                             insightError: String?, sourceErrors: [String: String]) {
+        if let fresh {
             insight = fresh
         }
         lastSynced = Date()
-        if response.changed {
+        if changed {
             lastChanged = Date()
         }
-        bmrKcal = response.bmrKcal
+        bmrKcal = bmr
         var problems: [String] = []
-        if let insightError = response.insightError {
+        if let insightError {
             problems.append("insight: \(insightError)")
         }
-        problems.append(contentsOf: response.sourceErrors.map { "\($0.key): \($0.value)" })
+        problems.append(contentsOf: sourceErrors.map { "\($0.key): \($0.value)" })
         errorMessage = problems.isEmpty ? nil : problems.joined(separator: "\n")
+    }
+
+    func loadFood() async {
+        if let response = try? await APIClient.shared.listFood() {
+            entries = response.entries
+        }
+    }
+
+    func deleteFood(_ entry: FoodEntry) async {
+        do {
+            apply(try await APIClient.shared.deleteFood(id: entry.id))
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     /// kcal relative to (active calories + BMR); nil until nutrition is logged.
@@ -64,13 +96,13 @@ struct DashboardView: View {
                 VStack(spacing: 16) {
                     insightCard
                     metricsGrid
-                    logFoodButton
+                    foodSection
                     syncStatus
                 }
                 .padding()
             }
             .sheet(isPresented: $showLogSheet) {
-                NutritionLogSheet(snapshot: model.snapshot) { response in
+                AddFoodSheet { response in
                     model.apply(response)
                 }
             }
@@ -93,6 +125,7 @@ struct DashboardView: View {
                 }
             }
             .refreshable { await model.sync() }
+            .task { await model.loadFood() }
             // Polling loop: restarts whenever the toggle flips; pauses in background.
             .task(id: model.autoSync) {
                 guard model.autoSync else { return }
@@ -162,16 +195,56 @@ struct DashboardView: View {
         }
     }
 
-    private var logFoodButton: some View {
-        Button {
-            showLogSheet = true
-        } label: {
-            Label("Log food", systemImage: "fork.knife.circle.fill")
+    private var foodSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Food log", systemImage: "fork.knife")
                 .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+            if model.entries.isEmpty {
+                Text("Nothing logged yet today.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(model.entries) { entry in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entry.name).font(.subheadline.weight(.medium))
+                            Text(entryDetail(entry))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            Task { await model.deleteFood(entry) }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                    .background(.gray.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                }
+            }
+            Button {
+                showLogSheet = true
+            } label: {
+                Label("Add food", systemImage: "plus.circle.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
         }
-        .buttonStyle(.borderedProminent)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func entryDetail(_ entry: FoodEntry) -> String {
+        var parts = ["\(entry.calories) kcal"]
+        if let p = entry.proteinG { parts.append("\(Int(p))g P") }
+        if let c = entry.carbsG { parts.append("\(Int(c))g C") }
+        if let f = entry.fatG { parts.append("\(Int(f))g F") }
+        return parts.joined(separator: " · ")
     }
 
     private func metric(_ title: String, _ value: String?, _ icon: String) -> some View {

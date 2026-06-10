@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -71,12 +71,63 @@ class SyncResponse(BaseModel):
     bmr_kcal: int = BMR_KCAL
 
 
-class NutritionLogRequest(BaseModel):
+class FoodEntryCreate(BaseModel):
     day: date | None = None  # defaults to today (UTC)
-    calories: int = Field(ge=0, le=10000)
-    protein_g: float = Field(ge=0, le=1000)
-    carbs_g: float | None = Field(default=None, ge=0, le=1000)
-    fat_g: float | None = Field(default=None, ge=0, le=1000)
+    name: str = Field(min_length=1, max_length=200)
+    calories: int = Field(ge=0, le=5000)
+    protein_g: float | None = Field(default=None, ge=0, le=500)
+    carbs_g: float | None = Field(default=None, ge=0, le=500)
+    fat_g: float | None = Field(default=None, ge=0, le=500)
+
+
+class FoodEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    date: date
+    name: str
+    calories: int
+    protein_g: float | None
+    carbs_g: float | None
+    fat_g: float | None
+
+
+class FoodLogResponse(BaseModel):
+    """Returned by food-entry mutations: the day's entries plus the same
+    snapshot/insight payload as POST /api/sync."""
+
+    entries: list[FoodEntryOut]
+    snapshot: SnapshotOut | None
+    insight: InsightOut | None
+    changed: bool
+    insight_error: str | None = None
+    bmr_kcal: int = BMR_KCAL
+
+
+class FoodListResponse(BaseModel):
+    day: date
+    entries: list[FoodEntryOut]
+
+
+class CoachChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class CoachMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    role: str
+    content: str
+    created_at: datetime
+
+
+class CoachChatResponse(BaseModel):
+    reply: CoachMessageOut
+
+
+class CoachHistoryResponse(BaseModel):
+    messages: list[CoachMessageOut]
 
 
 class NutritionTodayResponse(BaseModel):

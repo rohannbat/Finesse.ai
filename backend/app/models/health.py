@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Date, DateTime, Float, ForeignKey, Integer, Text, UniqueConstraint, Uuid, func
+from sqlalchemy import JSON, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -56,4 +56,33 @@ class DailyInsight(Base):
     date: Mapped[date] = mapped_column(Date, index=True)
     insight_text: Mapped[str] = mapped_column(Text)
     flags: Mapped[dict] = mapped_column(JSON, default=dict)  # {"hrv_drop": true, ...}
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class FoodEntry(Base):
+    """One logged food/meal. The day's nutrition totals in daily_snapshot are
+    recomputed as the sum of that day's entries on every mutation."""
+
+    __tablename__ = "food_entry"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    calories: Mapped[int] = mapped_column(Integer)
+    protein_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    carbs_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fat_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CoachMessage(Base):
+    """Conversation history for the AI coach chat."""
+
+    __tablename__ = "coach_message"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), index=True)
+    role: Mapped[str] = mapped_column(String(16))  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

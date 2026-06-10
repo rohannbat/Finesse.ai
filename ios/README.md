@@ -1,6 +1,9 @@
-# HealthSync iOS (test client)
+# HealthSync iOS
 
-A minimal SwiftUI app for exercising the MVP backend end-to-end from a phone or simulator: login → connect WHOOP (or Oura) → live dashboard that polls `POST /api/sync` every 30 seconds.
+A SwiftUI calorie-logging app fed by WHOOP data, with two tabs:
+
+- **Today** — live dashboard (insight card, metric grid, food log with per-meal entries) polling `POST /api/sync` every 30 seconds
+- **Coach** — WHOOP-Coach-style AI chat grounded in your actual WHOOP + nutrition data
 
 No third-party dependencies — just drop the files into an Xcode project.
 
@@ -32,8 +35,9 @@ For a **physical device**, also point the WHOOP redirect URI at your LAN IP in `
 
 1. **Create account** on the login screen (any email + 8-char password).
 2. Menu (⋯) → **Connect WHOOP** — approve in Safari; the backend callback page shows `{"status": "connected"}`. Return to the app.
-3. The dashboard polls every 30s (toggle in the ⋯ menu, or pull-to-refresh / "Sync now" for manual).
-4. **Log food** (button under the metric grid) — enter the day's calorie/protein totals (carbs/fat optional), Save. Replace semantics: each save sets the day's totals; re-save running totals to update. The Calories in / Energy balance / Protein tiles populate immediately and the insight regenerates to connect food to recovery.
+3. The Today tab polls every 30s (toggle in the ⋯ menu, or pull-to-refresh / "Sync now" for manual).
+4. **Add food** (Food log section) — name + calories per meal, macros optional. Entries sum into the day's totals; the Calories in / Energy balance / Protein tiles update immediately and the insight regenerates when totals change. Tap ✕ on an entry to delete it (totals recompute).
+5. **Coach tab** — ask anything about your data ("Should I train hard today?", "How's my protein this week?"). Claude answers from your live WHOOP + food numbers; the conversation persists across sessions.
 
 ## How the 30-second sync works
 

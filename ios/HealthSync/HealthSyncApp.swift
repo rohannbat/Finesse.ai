@@ -9,7 +9,12 @@ struct HealthSyncApp: App {
             if authToken.isEmpty {
                 LoginView()
             } else {
-                DashboardView()
+                TabView {
+                    DashboardView()
+                        .tabItem { Label("Today", systemImage: "heart.text.square.fill") }
+                    CoachView()
+                        .tabItem { Label("Coach", systemImage: "bubble.left.and.text.bubble.right.fill") }
+                }
             }
         }
     }

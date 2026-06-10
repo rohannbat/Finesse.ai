@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import auth, insights, integrations, nutrition, sync
+from app.api import auth, coach, food, insights, integrations, nutrition, sync
 from app.database import Base, engine
 
 
@@ -21,6 +21,8 @@ app.include_router(integrations.router)
 app.include_router(insights.router)
 app.include_router(sync.router)
 app.include_router(nutrition.router)
+app.include_router(food.router)
+app.include_router(coach.router)
 
 
 @app.get("/healthz", tags=["meta"])

@@ -1,7 +1,7 @@
 # HealthSync — Project Handover
 
 > Status as of 2026-06-10, branch `claude/adoring-hypatia-ajnebs`.
-> Picks up from the original product handover (AI health data aggregation: pull from wearables/nutrition platforms, normalise into one daily snapshot per user, have Claude deliver 1-3 contextual insights instead of raw dashboards).
+> Picks up from the original product handover, **with an owner-directed pivot**: HealthSync is now a **calorie logging app that digests WHOOP data**, with two AI surfaces — an auto-generated daily insight and a conversational AI coach (WHOOP-Coach-style chat, `/api/coach/chat` + Coach tab in the iOS app). Nutrition is meal-level (`food_entry` table) and rolls up into the daily snapshot.
 
 ---
 
@@ -148,7 +148,8 @@ iOS: see `ios/README.md`. Curl walkthrough: see root `README.md`.
 
 | Item | Notes |
 |---|---|
-| Third-party nutrition API | MFP's API is dead; Cronometer/Nutritionix are a later decision. Interim solution shipped: **manual day-totals logging** via `POST /api/nutrition` + iOS quick-log sheet (replace semantics, same snapshot row and change-detection path as wearable syncs). Energy-balance and protein-floor flags use fixed constants (`app/constants.py`: 1700 kcal BMR, 75 kg bodyweight) — make per-user columns later. |
+| Third-party nutrition API | MFP's API is dead; Cronometer/Nutritionix are a later decision. Shipped instead: **meal-level logging** (`POST /api/food`, entries sum into snapshot totals via `services/nutrition_service.py`; `POST /api/nutrition` day-totals endpoint was removed in the pivot). Energy-balance and protein-floor flags use fixed constants (`app/constants.py`: 1700 kcal BMR, 75 kg bodyweight) — make per-user columns later. |
+| Coach chat cost/latency | Each coach turn sends full context + up to 20 history messages, non-streaming. Fine for one user; add SSE streaming and prompt caching if usage grows. History is never auto-pruned — `DELETE /api/coach/history` is manual. |
 | Scheduled job | No cron/APScheduler. Production should run `sync_all_connected` + `generate_insight` per user at 6am local. |
 | React web dashboard | Not started (iOS app covers testing). |
 | Apple HealthKit | Not started; the iOS app is the natural host (HealthKit is iOS-SDK-only, no server API). |

@@ -65,14 +65,31 @@ final class APIClient {
         try await request("/api/sync", method: "POST")
     }
 
-    /// Replace semantics: sets the day's nutrition totals outright (the
-    /// backend merges into today's snapshot and regenerates the insight if
-    /// values changed).
-    func logNutrition(calories: Int, proteinG: Double, carbsG: Double?, fatG: Double?) async throws -> SyncResponse {
-        var body: [String: Any] = ["calories": calories, "protein_g": proteinG]
+    /// Log one food/meal. The backend recomputes the day's totals from all
+    /// entries and regenerates the insight if they changed.
+    func addFood(name: String, calories: Int, proteinG: Double?, carbsG: Double?, fatG: Double?) async throws -> FoodLogResponse {
+        var body: [String: Any] = ["name": name, "calories": calories]
+        if let proteinG { body["protein_g"] = proteinG }
         if let carbsG { body["carbs_g"] = carbsG }
         if let fatG { body["fat_g"] = fatG }
-        return try await request("/api/nutrition", method: "POST", body: body)
+        return try await request("/api/food", method: "POST", body: body)
+    }
+
+    func listFood() async throws -> FoodListResponse {
+        try await request("/api/food")
+    }
+
+    func deleteFood(id: String) async throws -> FoodLogResponse {
+        try await request("/api/food/\(id)", method: "DELETE")
+    }
+
+    /// Ask the AI coach a question — answered from the user's live data.
+    func coachChat(message: String) async throws -> CoachChatResponse {
+        try await request("/api/coach/chat", method: "POST", body: ["message": message])
+    }
+
+    func coachHistory() async throws -> CoachHistoryResponse {
+        try await request("/api/coach/history")
     }
 
     func logout() {

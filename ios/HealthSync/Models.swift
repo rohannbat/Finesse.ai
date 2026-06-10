@@ -55,3 +55,42 @@ struct SyncResponse: Decodable {
     /// drift between client and server.
     let bmrKcal: Int
 }
+
+struct FoodEntry: Decodable, Identifiable {
+    let id: String
+    let date: String
+    let name: String
+    let calories: Int
+    let proteinG: Double?
+    let carbsG: Double?
+    let fatG: Double?
+}
+
+struct FoodLogResponse: Decodable {
+    let entries: [FoodEntry]
+    let snapshot: Snapshot?
+    let insight: Insight?
+    let changed: Bool
+    let insightError: String?
+    let bmrKcal: Int
+}
+
+struct FoodListResponse: Decodable {
+    let day: String
+    let entries: [FoodEntry]
+}
+
+struct CoachMessage: Decodable, Identifiable {
+    let id: String
+    let role: String  // "user" | "assistant"
+    let content: String
+    let createdAt: String
+}
+
+struct CoachChatResponse: Decodable {
+    let reply: CoachMessage
+}
+
+struct CoachHistoryResponse: Decodable {
+    let messages: [CoachMessage]
+}
